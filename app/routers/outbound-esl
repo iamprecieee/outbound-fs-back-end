@@ -1,0 +1,66 @@
+import gevent
+import greenswitch
+import os
+from datetime import datetime
+
+import logging
+logging.basicConfig(level=logging.DEBUG)
+
+
+class MyApplication(object):
+    def __init__(self, session):
+        self.session = session
+        # Create recordings directory if it doesn't exist
+        self.recordings_dir = "recordings"
+        if not os.path.exists(self.recordings_dir):
+            os.makedirs(self.recordings_dir)
+
+    def run(self):
+        """
+        Main function that is called when a call comes in.
+        """
+        try:
+            self.handle_call()
+        except:
+            logging.exception('Exception raised when handling call')
+            self.session.stop()
+
+    def handle_call(self):
+        self.session.myevents()
+        print("myevents")
+    
+        self.session.linger()
+        print("linger")
+        self.session.answer()
+        print("answer")
+        gevent.sleep(1)
+        print("sleep")
+    
+        # Generate unique filename using timestamp
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        recording_path = os.path.join(self.recordings_dir, f"call_{timestamp}.wav")
+        
+        # Start recording the call
+        self.session.record_session(recording_path, record_stereo=True)
+        print(f"Started recording to {recording_path}")
+    
+        self.session.playback('welcome')
+        print("welcome")
+      
+        self.session.playback('local_stream://default', block=False)
+        print("moh")
+      
+        gevent.sleep(5)
+        print("sleep 5")
+      
+        self.session.uuid_break()
+        print("break")
+        self.session.hangup()
+        print("hangup")
+        self.session.stop()
+
+    server = greenswitch.OutboundESLServer(bind_address='0.0.0.0',
+                                   bind_port=5000,
+                                   application=MyApplication,
+                                   max_connections=5)
+    server.listen()
